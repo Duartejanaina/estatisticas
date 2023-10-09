@@ -1,0 +1,80 @@
+from datetime import timedelta
+
+import numpy as np
+import pandas as pd
+
+dfmcoConv = "D:/usuarios/sm00000028/Downloads/mcoconv11a20.csv"
+df4conv = pd.read_csv(dfmcoConv, delimiter=";")
+df4conv = pd.read_csv(dfmcoConv, delimiter=";")
+df4conv = df4conv[df4conv["PC"] != 0]
+df4conv = df4conv[df4conv["PC"] != 3]
+df4conv["LINHA"] = df4conv["LINHA"].astype(str)
+df4conv["SUBLINHA"] = df4conv["SUBLINHA"].astype(int)
+df4conv["PC"] = df4conv["PC"].astype(int)
+df4conv["TIPODIA"] = df4conv["TIPODIA"].astype(int)
+df4conv["SAIDA"] = pd.to_datetime(df4conv["SAIDA"], format="%H:%M")
+df4conv["CHEGADA"] = pd.to_datetime(df4conv["CHEGADA"], format="%H:%M")
+
+# Calcula a diferença entre 'CHEGADA' e 'SAIDA' e armazena em uma nova coluna 'tempo_viagem'
+df4conv["tempo_viagem"] = df4conv["CHEGADA"] - df4conv["SAIDA"]
+df4conv["tempo_viagem"] = df4conv["tempo_viagem"].apply(lambda x: x if x >= timedelta(0) else x + timedelta(days=1))
+df4conv["tempo_viagem"] = df4conv["tempo_viagem"].dt.total_seconds() / 60
+df4conv["faixa"] = df4conv["SAIDA"].dt.hour
+
+
+df4conv["TOTALUSUARIOS"] = df4conv["TOTALUSUARIOS"].astype(int)
+
+
+grouped = df4conv.groupby(by=["LINHA", "SUBLINHA", "faixa", "PC", "TIPODIA"])
+
+# Calcule a média da coluna 'TOTALUSUARIOS' por grupo
+media_passageiros = grouped["TOTALUSUARIOS"].mean().round().reset_index()
+
+# Calcule o primeiro quartil da coluna 'TOTALUSUARIOS' por grupo
+primeiro_quartil_passageiros = (
+    grouped["TOTALUSUARIOS"].quantile(0.25).round().reset_index()
+)
+
+# Renomeie as colunas
+media_passageiros.rename(columns={"TOTALUSUARIOS": "Media_PASSAGEIROS"}, inplace=True)
+primeiro_quartil_passageiros.rename(
+    columns={"TOTALUSUARIOS": "Primeiro_Quartil_PASSAGEIROS"}, inplace=True
+)
+
+# Junte os resultados em um único DataFrame
+result = pd.merge(
+    media_passageiros,
+    primeiro_quartil_passageiros,
+    on=["LINHA", "SUBLINHA", "faixa", "PC", "TIPODIA"],
+)
+
+
+# Calcule a média da coluna 'TOTALUSUARIOS' por grupo
+media_TC = grouped["tempo_viagem"].mean().reset_index()
+
+# Calcule o primeiro quartil da coluna 'TOTALUSUARIOS' por grupo
+primeiro_quartil_tempo = grouped["tempo_viagem"].quantile(0.25).reset_index()
+
+# Renomeie as colunas
+media_TC.rename(columns={"tempo_viagem": "Media_TempoViagem"}, inplace=True)
+primeiro_quartil_tempo.rename(
+    columns={"tempo_viagem": "Primeiroquartil_tempo_viagem"}, inplace=True
+)
+
+# Junte os resultados em um único DataFrame
+result1 = pd.merge(
+    media_TC, primeiro_quartil_tempo, on=["LINHA", "SUBLINHA", "faixa", "PC", "TIPODIA"]
+)
+
+resultfinal = pd.merge(result, result1)
+
+# Exiba o resultado
+print(resultfinal)
+
+
+resultfinal.to_csv(
+  "G:/.shortcut-targets-by-id/1KlHFtH5Jvo7J9AF_VBixQOXpFsNmZvhD/05.3. Pesquisa e Ciência dados - GEPDA/05.3.3 Data Science/05.3.3.2. Apuração TC Lei 11.458/01. Resultados por decêndio/20230921/04. Histórico/Convencional/resulthist7dec.csv",
+    sep=";",
+    decimal=",",
+    index=False,
+)
